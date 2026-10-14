@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DUCKCRAFT · Local Minecraft server manager</title>
+  <link rel="icon" type="image/svg+xml" href="/logo.svg">
+  <style>
+    :root {
+      --bg: #0d1413;
+      --panel: #131c1b;
+      --panel-2: #182322;
+      --line: #25322f;
+      --text: #e5ede9;
+      --muted: #8a9b96;
+      --duck: #f5c542;
+      --duck-ink: #231a00;
+      --ok: #5fd38d;
+      --warn: #f0b64a;
+      --bad: #ef6a5b;
+      --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      --mono: ui-monospace, "Cascadia Code", "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      display: grid; grid-template-columns: 17rem 1fr;
+      background: var(--bg); color: var(--text);
+      font: 14px/1.5 var(--sans); -webkit-font-smoothing: antialiased;
+    }
+    button, input, select { font: inherit; color: inherit; }
+    button { cursor: pointer; }
+    button:disabled { cursor: not-allowed; opacity: .4; }
+    :focus-visible { outline: 2px solid var(--duck); outline-offset: 2px; }
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-thumb { background: var(--line); border-radius: 4px; }
+
+    aside { display: flex; flex-direction: column; background: var(--panel); border-right: 1px solid var(--line); min-height: 0; }
+    .brand { display: flex; align-items: center; gap: .75rem; padding: 1.1rem 1.2rem; border-bottom: 1px solid var(--line); }
+    .logo { flex: none; width: 3rem; height: auto; }
+    .brand h1 { margin: 0; font-size: 1rem; font-weight: 700; letter-spacing: .06em; }
+    .brand p { margin: 0; font-size: .75rem; color: var(--muted); }
+    .servers { flex: 1; overflow-y: auto; padding: 1rem .8rem; min-height: 0; }
+    .servers-head { display: flex; justify-content: space-between; align-items: center; padding: 0 .4rem .6rem; color: var(--muted); font-size: .8rem; font-weight: 600; }
+    .link-btn { background: none; border: 0; color: var(--duck); font-weight: 600; font-size: .8rem; padding: .15rem .3rem; border-radius: 6px; }
+    .link-btn:hover { text-decoration: underline; }
+    .server-item {
+      display: flex; align-items: center; justify-content: space-between; gap: .5rem; width: 100%;
+      padding: .6rem .7rem; margin-bottom: .3rem; text-align: left;
+      background: transparent; border: 1px solid transparent; border-radius: 10px; color: var(--muted);
+    }
+    .server-item:hover { background: var(--panel-2); color: var(--text); }
+    .server-item.selected { background: var(--panel-2); border-color: var(--line); color: var(--text); box-shadow: inset 3px 0 0 var(--duck); }
+    .server-item .name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .server-item .sub { font-family: var(--mono); font-size: .72rem; color: var(--muted); }
+    .server-empty { padding: .4rem; color: var(--muted); font-size: .85rem; }
+    .side-foot { padding: .9rem 1rem; border-top: 1px solid var(--line); }
+    .java { display: flex; align-items: center; gap: .6rem; padding: .5rem .7rem; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; font: .72rem var(--mono); color: var(--muted); }
+    .java span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .dot { flex: none; width: .55rem; height: .55rem; border-radius: 50%; background: var(--muted); }
+    .dot.ok { background: var(--ok); } .dot.bad { background: var(--bad); } .dot.warn { background: var(--warn); }
+
+    main { display: flex; flex-direction: column; min-width: 0; min-height: 0; height: 100vh; }
+    header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; padding: 1rem 1.5rem; border-bottom: 1px solid var(--line); }
+    .title { display: flex; align-items: center; gap: .75rem; flex-wrap: wrap; min-width: 0; }
+    .title h2 { margin: 0; font-size: 1.35rem; font-weight: 700; }
+    .chip { font: .72rem var(--mono); padding: .15rem .55rem; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+    .chip:empty { display: none; }
+    .status { display: inline-flex; align-items: center; gap: .5rem; padding: .25rem .75rem; border-radius: 999px; border: 1px solid var(--line); font-size: .8rem; font-weight: 600; color: var(--muted); }
+    .status.starting, .status.stopping { color: var(--warn); border-color: #5b4617; }
+    .status.online { color: var(--ok); border-color: #1f5237; }
+    .status.starting .dot, .status.stopping .dot, .status.online .dot { animation: pulse 1.6s ease-in-out infinite; }
+    .status.starting .dot, .status.stopping .dot { background: var(--warn); }
+    .status.online .dot { background: var(--ok); }
+    .status.error { color: var(--bad); border-color: #5c2a24; }
+    @keyframes pulse { 50% { opacity: .35; } }
+
+    .controls { display: flex; gap: .5rem; }
+    .btn { display: inline-flex; align-items: center; gap: .4rem; padding: .45rem .95rem; border-radius: 8px; border: 1px solid var(--line); background: var(--panel-2); font-weight: 600; font-size: .85rem; }
+    .btn:hover:not(:disabled) { background: #1f2d2b; }
+    .btn.start { background: var(--ok); border-color: var(--ok); color: #05210f; }
+    .btn.start:hover:not(:disabled) { background: #7be0a3; }
+    .btn.kill { background: transparent; border-color: #5c2a24; color: var(--bad); }
+    .btn.kill:hover:not(:disabled) { background: #2a1512; }
+    .btn.primary { background: var(--duck); border-color: var(--duck); color: var(--duck-ink); }
+    .btn.primary:hover:not(:disabled) { background: #ffd35e; }
+    .btn.ghost { background: transparent; border-color: transparent; color: var(--muted); }
+    .btn svg { width: .85rem; height: .85rem; fill: currentColor; }
+
+    .console-wrap { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 1.25rem 1.5rem .75rem; gap: .75rem; }
+    .console { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; background: #070b0a; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+    .console-bar { display: flex; justify-content: space-between; align-items: center; padding: .45rem .9rem; background: var(--panel); border-bottom: 1px solid var(--line); font: .75rem var(--mono); color: var(--muted); }
+    #logs { flex: 1; overflow-y: auto; padding: .9rem 1rem; font: 12.5px/1.6 var(--mono); user-select: text; }
+    #logs div { white-space: pre-wrap; word-break: break-word; color: #c9d6d1; }
+    #logs .warn { color: var(--warn); }
+    #logs .err { color: var(--bad); }
+    #logs .duck { color: var(--duck); }
+    #logs .echo { color: var(--ok); }
+    .empty { position: absolute; inset: 2.3rem 0 3rem; display: none; place-content: center; text-align: center; gap: .5rem; color: var(--muted); padding: 1rem; pointer-events: none; }
+    .empty.show { display: grid; }
+    .empty strong { color: var(--text); font-size: 1rem; }
+    .cmd { display: flex; align-items: center; gap: .6rem; padding: .35rem .6rem .35rem 1rem; border-top: 1px solid var(--line); background: var(--panel); }
+    .cmd .prompt { font: 14px var(--mono); color: var(--duck); }
+    .cmd input { flex: 1; min-width: 0; background: transparent; border: 0; outline: 0; font: 12.5px var(--mono); padding: .5rem 0; }
+    .cmd input::placeholder { color: #566763; }
+    .cmd:focus-within { box-shadow: inset 0 2px 0 var(--duck); }
+    .legal { margin: 0; text-align: center; font-size: .7rem; color: #5f716c; letter-spacing: .03em; }
+
+    [hidden] { display: none !important; }
+    .tabs { display: flex; gap: .25rem; padding: 0 1.5rem; border-bottom: 1px solid var(--line); }
+    .tab { background: none; border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px; padding: .65rem .9rem; color: var(--muted); font-weight: 600; font-size: .85rem; }
+    .tab:hover { color: var(--text); }
+    .tab.active { color: var(--text); border-bottom-color: var(--duck); }
+
+    .settings { flex: 1; min-height: 0; overflow-y: auto; padding: 1.25rem 1.5rem 0; }
+    .settings-inner { max-width: 46rem; display: flex; flex-direction: column; gap: 1.1rem; padding-bottom: 1.25rem; }
+    .set-group { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; }
+    .set-group h3 { margin: 0; padding: .75rem 1rem; font-size: .9rem; border-bottom: 1px solid var(--line); }
+    .set-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 14rem); gap: 1.25rem; align-items: center; padding: .7rem 1rem; border-bottom: 1px solid var(--line); }
+    .set-row:last-child { border-bottom: 0; }
+    .set-row label { font-weight: 600; font-size: .85rem; }
+    .set-row .help { margin: .1rem 0 0; font-size: .75rem; color: var(--muted); }
+    .set-row input[type=text], .set-row input[type=number], .set-row select { width: 100%; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: .45rem .65rem; font-size: .85rem; }
+    .set-row input:focus, .set-row select:focus { outline: 0; border-color: var(--duck); }
+    .set-row input:disabled, .set-row select:disabled { opacity: .5; }
+    .set-row input[type=checkbox] { width: 1.15rem; height: 1.15rem; accent-color: var(--duck); }
+    details.set-group summary { padding: .75rem 1rem; font-size: .9rem; font-weight: 600; cursor: pointer; }
+    details.set-group[open] summary { border-bottom: 1px solid var(--line); }
+    .note { padding: .75rem 1rem; background: var(--panel); border: 1px solid var(--line); border-left: 3px solid var(--muted); border-radius: 10px; font-size: .8rem; color: var(--muted); }
+    .note.warn { border-left-color: var(--warn); color: var(--text); }
+    .note a { color: var(--duck); }
+    .savebar { position: sticky; bottom: 0; display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: .75rem 0; background: var(--bg); border-top: 1px solid var(--line); font-size: .8rem; color: var(--muted); }
+
+    .overlay { position: fixed; inset: 0; z-index: 20; display: none; align-items: center; justify-content: center; padding: 1rem; background: rgba(0,0,0,.65); }
+    .overlay.open { display: flex; }
+    .modal { width: 100%; max-width: 28rem; background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 1.4rem; display: flex; flex-direction: column; gap: 1rem; box-shadow: 0 24px 60px rgba(0,0,0,.5); }
+    .modal h3 { margin: 0; font-size: 1.05rem; }
+    .field { display: flex; flex-direction: column; gap: .3rem; font-size: .8rem; color: var(--muted); font-weight: 600; }
+    .field input, .field select { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: .55rem .7rem; color: var(--text); font-weight: 400; font-size: .9rem; }
+    .field input:focus, .field select:focus { outline: 0; border-color: var(--duck); }
+    .grid3 { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
+    .eula { display: flex; gap: .6rem; align-items: flex-start; padding: .75rem; background: var(--bg); border: 1px solid var(--line); border-radius: 10px; font-size: .78rem; color: var(--muted); }
+    .eula input { margin-top: .2rem; accent-color: var(--duck); }
+    .eula a { color: var(--duck); }
+    .hint { margin: 0; font-size: .75rem; color: var(--muted); }
+    .actions { display: flex; justify-content: flex-end; gap: .5rem; }
+
+    #toasts { position: fixed; right: 1rem; bottom: 1rem; z-index: 30; display: flex; flex-direction: column; gap: .5rem; max-width: 22rem; }
+    .toast { padding: .65rem .9rem; border-radius: 10px; background: var(--panel-2); border: 1px solid #5c2a24; border-left: 4px solid var(--bad); font-size: .85rem; box-shadow: 0 8px 24px rgba(0,0,0,.4); }
+    .toast.info { border-color: var(--line); border-left-color: var(--ok); }
+
+    @media (max-width: 760px) {
+      body { grid-template-columns: 1fr; grid-template-rows: auto 1fr; height: auto; min-height: 100%; }
+      aside { border-right: 0; border-bottom: 1px solid var(--line); }
+      .servers { max-height: 11rem; }
+      main { height: 90vh; }
+      .set-row { grid-template-columns: 1fr; gap: .4rem; }
+    }
+    @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+  </style>
+</head>
+<body>
+
+  <aside>
+    <div class="brand">
+      <img class="logo" src="/logo.svg" alt="">
+      <div>
+        <h1>DUCKCRAFT</h1>
+        <p>Local server manager</p>
+      </div>
+    </div>
+
+    <nav class="servers" aria-label="Servers">
+      <div class="servers-head">
+        <span>Your servers</span>
+        <button class="link-btn" onclick="openModal()">Add server</button>
+      </div>
+      <div id="serversList"></div>
+    </nav>
+
+    <div class="side-foot">
+      <div class="java" title="Java runtime found on this computer">
+        <span id="javaDot" class="dot"></span>
+        <span id="javaText">Checking Java…</span>
+      </div>
+    </div>
+  </aside>
+
+  <main>
+    <header>
+      <div class="title">
+        <h2 id="activeTitle">No server selected</h2>
+        <span id="activeMeta" class="chip"></span>
+        <span id="statusPill" class="status"><span class="dot"></span><span id="statusText">Offline</span></span>
+      </div>
+      <div class="controls">
+        <button id="startBtn" class="btn start" onclick="api('/api/start')" disabled>
+          <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>Start
+        </button>
+        <button id="stopBtn" class="btn" onclick="api('/api/stop')" disabled>
+          <svg viewBox="0 0 24 24"><path d="M6 6h12v12H6z"/></svg>Stop
+        </button>
+        <button id="killBtn" class="btn kill" onclick="killServer()" disabled title="Force-quit the server process. Unsaved progress may be lost.">Force quit</button>
+      </div>
+    </header>
+
+    <div class="tabs" role="tablist">
+      <button id="tabConsole" class="tab active" role="tab" aria-selected="true" onclick="showView('console')">Console</button>
+      <button id="tabSettings" class="tab" role="tab" aria-selected="false" onclick="showView('settings')">Settings</button>
+    </div>
+
+    <section id="consoleView" class="console-wrap">
+      <div class="console">
+        <div class="console-bar">
+          <span id="connText">Console</span>
+          <button class="link-btn" style="color:var(--muted)" onclick="clearLogs()">Clear view</button>
+        </div>
+        <div id="logs" role="log" aria-live="off"></div>
+        <div id="emptyHint" class="empty">
+          <img src="/logo.svg" alt="" width="96" style="margin:0 auto .5rem">
+          <strong>Create your first server</strong>
+          <span>Click “Add server” in the sidebar. DUCKCRAFT downloads Paper or Vanilla for you.</span>
+        </div>
+        <form class="cmd" onsubmit="sendCommand(event)">
+          <span class="prompt" aria-hidden="true">&gt;</span>
+          <input id="cmdInput" type="text" autocomplete="off" spellcheck="false" aria-label="Server command" disabled placeholder="Start the server to send commands">
+          <button id="cmdBtn" class="btn ghost" type="submit" disabled>Send</button>
+        </form>
+      </div>
+      <p class="legal">NOT AN OFFICIAL MINECRAFT PRODUCT. NOT APPROVED BY OR ASSOCIATED WITH MOJANG OR MICROSOFT.</p>
+    </section>
+
+    <section id="settingsView" class="settings" hidden>
+      <div id="settingsBody" class="settings-inner"></div>
+      <div id="saveBar" class="savebar" hidden>
+        <span>Changes apply the next time the server starts. A backup is saved as server.properties.bak.</span>
+        <button id="saveBtn" class="btn primary" onclick="saveProps()">Save settings</button>
+      </div>
+    </section>
+  </main>
+
+  <div id="modal" class="overlay" onclick="if (event.target === this) closeModal()">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <h3 id="modalTitle">Add a Minecraft server</h3>
+
+      <label class="field">Server name
+        <input id="serverNameInput" type="text" maxlength="32" placeholder="Survival-SMP" autocomplete="off">
+      </label>
+
+      <div class="grid3">
+        <label class="field">Engine
+          <select id="serverTypeSelect" onchange="fetchVersions()">
+            <option value="paper">Paper (recommended)</option>
+            <option value="vanilla">Vanilla</option>
+          </select>
+        </label>
+        <label class="field">Version
+          <select id="serverVersionSelect"><option>Loading…</option></select>
+        </label>
+      </div>
+
+      <label class="field">Memory
+        <select id="ramSelect">
+          <option value="1">1 GB</option>
+          <option value="2" selected>2 GB</option>
+          <option value="4">4 GB</option>
+          <option value="6">6 GB</option>
+          <option value="8">8 GB</option>
+        </select>
+      </label>
+
+      <label class="eula">
+        <input id="eulaBox" type="checkbox">
+        <span>I accept the <a href="https://aka.ms/MinecraftEULA" target="_blank" rel="noopener">Minecraft EULA</a>. DUCKCRAFT will write <code>eula=true</code> for this server.</span>
+      </label>
+
+      <p class="hint">The server file is downloaded directly from PaperMC or Mojang and checked before use.</p>
+
+      <div class="actions">
+        <button class="btn ghost" onclick="closeModal()">Cancel</button>
+        <button id="createBtn" class="btn primary" onclick="submitCreateServer()">Create server</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toasts" role="status" aria-live="polite"></div>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const MAX_LINES = 2000;
+    let sys = null;
+    let lastActive;
+    let lastListSig = '';
+    const history = [];
+    let historyPos = 0;
+
+    function toast(msg, kind = 'error') {
+      const el = document.createElement('div');
+      el.className = 'toast ' + kind;
+      el.textContent = msg;
+      $('toasts').appendChild(el);
+      setTimeout(() => el.remove(), 5000);
+    }
+
+    async function api(url, method = 'POST', body = null) {
+      try {
+        const res = await fetch(url, {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+          body: body ? JSON.stringify(body) : undefined,
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) { toast(data.error || 'Request failed.'); return null; }
+        refreshState();
+        return data;
+      } catch {
+        toast('Cannot reach the DUCKCRAFT backend. Is main.py still running?');
+        return null;
+      }
+    }
+
+    function killServer() {
+      if (confirm('Force quit the server? Unsaved world progress may be lost. Use Stop for a clean shutdown.')) api('/api/kill');
+    }
+
+    const STATE_LABEL = { offline: 'Offline', starting: 'Starting…', online: 'Online', stopping: 'Stopping…' };
+
+    async function refreshState() {
+      try {
+        const res = await fetch('/api/system');
+        sys = await res.json();
+      } catch {
+        const pill = $('statusPill');
+        pill.className = 'status error';
+        $('statusText').textContent = 'Backend unreachable';
+        return;
+      }
+      render();
+    }
+
+    function render() {
+      const { java, servers, active_server: active, state } = sys;
+      const running = state !== 'offline';
+
+      $('javaDot').className = 'dot ' + (java.installed ? 'ok' : 'bad');
+      $('javaText').textContent = java.installed ? java.version : 'Java not found. Install it to start servers.';
+
+      const cur = servers.find((s) => s.name === active);
+      $('activeTitle').textContent = active || 'No server selected';
+      $('activeMeta').textContent = cur ? `${cur.type} ${cur.version} · ${cur.ram_gb} GB` : '';
+
+      $('statusPill').className = 'status ' + state;
+      $('statusText').textContent = STATE_LABEL[state] || state;
+
+      $('startBtn').disabled = running || !cur || !java.installed;
+      $('stopBtn').disabled = !(state === 'starting' || state === 'online');
+      $('killBtn').disabled = !running;
+
+      const canType = state === 'online' || state === 'starting';
+      $('cmdInput').disabled = !canType;
+      $('cmdBtn').disabled = !canType;
+      $('cmdInput').placeholder = canType ? 'Type a command, e.g. op PlayerName, say Hello' : 'Start the server to send commands';
+
+      $('emptyHint').classList.toggle('show', servers.length === 0);
+
+      if (lastActive !== undefined && lastActive !== active) clearLogs();
+      lastActive = active;
+
+      if (view === 'settings' && propsStateKey() !== propsKey) loadProps();
+
+      const sig = JSON.stringify([servers, active]);
+      if (sig !== lastListSig) { lastListSig = sig; renderServers(servers, active); }
+    }
+
+    function renderServers(servers, active) {
+      const list = $('serversList');
+      list.replaceChildren();
+      if (!servers.length) {
+        const p = document.createElement('div');
+        p.className = 'server-empty';
+        p.textContent = 'No servers yet.';
+        list.appendChild(p);
+        return;
+      }
+      for (const s of servers) {
+        const btn = document.createElement('button');
+        btn.className = 'server-item' + (s.name === active ? ' selected' : '');
+        btn.onclick = () => api(`/api/servers/select?name=${encodeURIComponent(s.name)}`);
+
+        const text = document.createElement('div');
+        text.style.minWidth = 0;
+        const name = document.createElement('div');
+        name.className = 'name';
+        name.textContent = s.name;
+        const sub = document.createElement('div');
+        sub.className = 'sub';
+        sub.textContent = `${s.type} ${s.version}`;
+        text.append(name, sub);
+        btn.appendChild(text);
+
+        if (s.is_running) {
+          const dot = document.createElement('span');
+          dot.className = 'dot ok';
+          dot.title = 'Running';
+          btn.appendChild(dot);
+        }
+        list.appendChild(btn);
+      }
+    }
+
+    const logsEl = $('logs');
+
+    function addLine(text, cls) {
+      const nearBottom = logsEl.scrollHeight - logsEl.scrollTop - logsEl.clientHeight < 60;
+      for (const line of text.replace(/\n+$/, '').split('\n')) {
+        const div = document.createElement('div');
+        div.textContent = line;
+        const c = cls || (line.startsWith('[DUCKCRAFT]') ? 'duck'
+          : /\/(ERROR|FATAL)\]|Exception|^\s+at /.test(line) ? 'err'
+          : /\/WARN\]/.test(line) ? 'warn' : '');
+        if (c) div.className = c;
+        logsEl.appendChild(div);
+      }
+      while (logsEl.childElementCount > MAX_LINES) logsEl.firstChild.remove();
+      if (nearBottom) logsEl.scrollTop = logsEl.scrollHeight;
+    }
+
+    function clearLogs() { logsEl.replaceChildren(); }
+
+    async function sendCommand(e) {
+      e.preventDefault();
+      const input = $('cmdInput');
+      const command = input.value.trim();
+      if (!command) return;
+      history.push(command);
+      historyPos = history.length;
+      input.value = '';
+      addLine('> ' + command, 'echo');
+      await api('/api/command', 'POST', { command });
+    }
+
+    $('cmdInput').addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowUp' && historyPos > 0) { e.preventDefault(); $('cmdInput').value = history[--historyPos]; }
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        historyPos = Math.min(historyPos + 1, history.length);
+        $('cmdInput').value = history[historyPos] || '';
+      }
+    });
+
+    function connect() {
+      const ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`);
+      ws.onopen = () => { clearLogs(); $('connText').textContent = 'Console · live'; };
+      ws.onmessage = (e) => addLine(e.data);
+      ws.onclose = () => { $('connText').textContent = 'Console · reconnecting…'; setTimeout(connect, 2000); };
+    }
+
+    async function fetchVersions() {
+      const type = $('serverTypeSelect').value;
+      const select = $('serverVersionSelect');
+      select.replaceChildren(new Option('Loading…', ''));
+      $('createBtn').disabled = true;
+      try {
+        const res = await fetch(`/api/versions?type=${type}`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        select.replaceChildren(...data.versions.map((v) => new Option(v, v)));
+        $('createBtn').disabled = false;
+      } catch (err) {
+        select.replaceChildren(new Option('Could not load versions', ''));
+        toast(err.message || 'Could not load versions. Check your internet connection.');
+      }
+    }
+
+    function openModal() {
+      $('modal').classList.add('open');
+      $('serverNameInput').focus();
+      fetchVersions();
+    }
+    function closeModal() { $('modal').classList.remove('open'); }
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
+
+    async function submitCreateServer() {
+      const name = $('serverNameInput').value.trim();
+      const version = $('serverVersionSelect').value;
+      if (!name) return toast('Enter a server name.');
+      if (!version) return toast('Pick a version.');
+      if (!$('eulaBox').checked) return toast('You need to accept the Minecraft EULA.');
+
+      const btn = $('createBtn');
+      btn.textContent = 'Downloading…';
+      btn.disabled = true;
+      const ok = await api('/api/servers/create', 'POST', {
+        name, version,
+        server_type: $('serverTypeSelect').value,
+        ram_gb: parseInt($('ramSelect').value, 10),
+        accept_eula: true,
+      });
+      btn.textContent = 'Create server';
+      btn.disabled = false;
+      if (ok) {
+        $('serverNameInput').value = '';
+        $('eulaBox').checked = false;
+        closeModal();
+        toast(`Server “${name}” is ready. Press Start.`, 'info');
+      }
+    }
+
+    let view = 'console';
+    let propsKey = null;
+    let loadedProps = {};
+
+    const SETTINGS = [
+      { group: 'General', items: [
+        { key: 'motd', label: 'Server description (MOTD)', type: 'text', help: 'Shown in the multiplayer list. Special characters appear as \\u escapes; leave those as they are.' },
+        { key: 'max-players', label: 'Max players', type: 'number', min: 1 },
+        { key: 'gamemode', label: 'Default game mode', type: 'select', options: ['survival', 'creative', 'adventure', 'spectator'] },
+        { key: 'difficulty', label: 'Difficulty', type: 'select', options: ['peaceful', 'easy', 'normal', 'hard'] },
+        { key: 'hardcore', label: 'Hardcore', type: 'bool', help: 'Players become spectators when they die.' },
+        { key: 'pvp', label: 'Player vs player', type: 'bool' },
+      ]},
+      { group: 'World', items: [
+        { key: 'level-seed', label: 'World seed', type: 'text', help: 'Only used when the world is first created.' },
+        { key: 'view-distance', label: 'View distance', type: 'number', min: 2, max: 32, help: 'Higher looks better but costs performance.' },
+        { key: 'simulation-distance', label: 'Simulation distance', type: 'number', min: 3, max: 32 },
+        { key: 'spawn-protection', label: 'Spawn protection radius', type: 'number', min: 0, help: 'Blocks around spawn that only operators can edit. 0 turns it off.' },
+        { key: 'allow-flight', label: 'Allow flying', type: 'bool', help: 'Needed by some mods and plugins to avoid “flying” kicks.' },
+        { key: 'enable-command-block', label: 'Command blocks', type: 'bool' },
+      ]},
+      { group: 'Access', items: [
+        { key: 'server-port', label: 'Port', type: 'number', min: 1024, max: 65535, help: 'Default is 25565.' },
+        { key: 'online-mode', label: 'Verify accounts', type: 'bool', help: 'Checks players against Minecraft accounts. Turning this off is insecure.' },
+        { key: 'white-list', label: 'Whitelist', type: 'bool', help: 'Only listed players can join. Manage it with the whitelist command.' },
+      ]},
+    ];
+    const KNOWN_KEYS = new Set(SETTINGS.flatMap((g) => g.items.map((i) => i.key)));
+
+    const propsStateKey = () => (sys ? `${sys.active_server}|${sys.is_running}` : '');
+
+    function showView(name) {
+      view = name;
+      $('consoleView').hidden = name !== 'console';
+      $('settingsView').hidden = name !== 'settings';
+      for (const [id, n] of [['tabConsole', 'console'], ['tabSettings', 'settings']]) {
+        $(id).classList.toggle('active', n === name);
+        $(id).setAttribute('aria-selected', String(n === name));
+      }
+      if (name === 'settings') loadProps();
+    }
+
+    function note(text, cls = '') {
+      const d = document.createElement('div');
+      d.className = 'note ' + cls;
+      d.textContent = text;
+      return d;
+    }
+
+    function friendsNote() {
+      const d = note('');
+      const a = document.createElement('a');
+      a.href = 'https://playit.gg';
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      a.textContent = 'playit.gg';
+      d.append(
+        'Friends on your Wi-Fi can join with your computer’s local IP address and the port above. For friends elsewhere, forward that port on your router, or use a tunnel service such as ',
+        a,
+        ' if your router doesn’t allow port forwarding. It’s a third-party service that is not affiliated with DUCKCRAFT, so read its terms first. Never post your home IP address publicly.'
+      );
+      return d;
+    }
+
+    function makeRow(item, value, locked) {
+      const id = 'set-' + item.key;
+      let el;
+      if (item.type === 'bool') {
+        el = document.createElement('input');
+        el.type = 'checkbox';
+        el.checked = value === 'true';
+      } else if (item.type === 'select') {
+        el = document.createElement('select');
+        const opts = item.options.includes(value) ? item.options : [value, ...item.options];
+        for (const o of opts) el.appendChild(new Option(o, o));
+        el.value = value;
+      } else {
+        el = document.createElement('input');
+        el.type = item.type === 'number' ? 'number' : 'text';
+        if (item.min !== undefined) el.min = item.min;
+        if (item.max !== undefined) el.max = item.max;
+        el.spellcheck = false;
+        el.value = value;
+      }
+      Object.assign(el, { id, disabled: locked });
+      el.dataset.key = item.key;
+      el.dataset.kind = item.type;
+
+      const row = document.createElement('div');
+      row.className = 'set-row';
+      const text = document.createElement('div');
+      const label = document.createElement('label');
+      label.htmlFor = id;
+      label.textContent = item.label || item.key;
+      text.appendChild(label);
+      if (item.help) {
+        const p = document.createElement('p');
+        p.className = 'help';
+        p.textContent = item.help;
+        text.appendChild(p);
+      }
+      row.append(text, el);
+      return row;
+    }
+
+    function buildForm(props, locked) {
+      const parts = [];
+      if (locked) parts.push(note('The server is running. Stop it to edit its settings.', 'warn'));
+
+      for (const g of SETTINGS) {
+        const items = g.items.filter((i) => i.key in props);
+        if (!items.length) continue;
+        const box = document.createElement('div');
+        box.className = 'set-group';
+        const h = document.createElement('h3');
+        h.textContent = g.group;
+        box.appendChild(h);
+        for (const i of items) box.appendChild(makeRow(i, props[i.key], locked));
+        parts.push(box);
+        if (g.group === 'Access') parts.push(friendsNote());
+      }
+
+      const others = Object.keys(props).filter((k) => !KNOWN_KEYS.has(k));
+      if (others.length) {
+        const box = document.createElement('details');
+        box.className = 'set-group';
+        const sum = document.createElement('summary');
+        sum.textContent = `All other settings (${others.length})`;
+        box.appendChild(sum);
+        for (const k of others) box.appendChild(makeRow({ key: k, type: 'text' }, props[k], locked));
+        parts.push(box);
+      }
+
+      $('settingsBody').replaceChildren(...parts);
+      $('saveBtn').disabled = locked;
+      $('saveBar').hidden = false;
+    }
+
+    async function loadProps() {
+      propsKey = propsStateKey();
+      const body = $('settingsBody');
+      $('saveBar').hidden = true;
+      if (!sys || !sys.active_server) {
+        body.replaceChildren(note('Create or select a server to edit its settings.'));
+        return;
+      }
+      try {
+        const res = await fetch('/api/properties');
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Could not load settings.');
+        if (!data.exists) {
+          body.replaceChildren(note('This server has no server.properties file yet. Start it once and stop it again, and Minecraft creates the file.'));
+          return;
+        }
+        loadedProps = data.properties;
+        buildForm(data.properties, data.running);
+      } catch (err) {
+        body.replaceChildren(note(err.message));
+      }
+    }
+
+    async function saveProps() {
+      const values = {};
+      document.querySelectorAll('#settingsBody [data-key]').forEach((el) => {
+        const v = el.dataset.kind === 'bool' ? String(el.checked) : el.value;
+        if (v !== loadedProps[el.dataset.key]) values[el.dataset.key] = v;
+      });
+      if (!Object.keys(values).length) return toast('Nothing changed.', 'info');
+      const btn = $('saveBtn');
+      btn.disabled = true;
+      const ok = await api('/api/properties', 'PUT', { values });
+      btn.disabled = false;
+      if (ok) {
+        toast('Saved. Changes apply the next time the server starts.', 'info');
+        loadProps();
+      }
+    }
+
+    connect();
+    refreshState();
+    setInterval(refreshState, 2000);
+  </script>
+</body>
+</html>
