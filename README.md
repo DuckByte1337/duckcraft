@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="logo.svg" alt="DUCKCRAFT, a low poly duck holding a cube" width="220">
+<img src="logo.svg" alt="DUCKCRAFT, a low poly duck holding a cube" width="200">
 
 # DUCKCRAFT
 
@@ -10,9 +10,15 @@ Pick an engine, pick a version, press start. No Docker, no database, no accounts
 [![License: MIT](https://img.shields.io/badge/license-MIT-f5c542?style=flat-square)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-3776ab?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/backend-FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![Stars](https://img.shields.io/github/stars/DuckByte1337/duckcraft?style=flat-square&color=f5c542)](https://github.com/DuckByte1337/duckcraft/stargazers)
+[![Last commit](https://img.shields.io/github/last-commit/DuckByte1337/duckcraft?style=flat-square)](https://github.com/DuckByte1337/duckcraft/commits/main)
 [![Runs locally](https://img.shields.io/badge/runs-100%25%20locally-5fd38d?style=flat-square)](#security)
 
-[Quick start](#quick-start) · [Features](#features) · [How it works](#how-it-works) · [Security](#security) · [Contributing](#contributing)
+[Quick start](#quick-start) · [Features](#features) · [Playing with friends](#playing-with-friends) · [Troubleshooting](#troubleshooting) · [Security](#security) · [Contributing](#contributing)
+
+<br>
+
+<img src="preview.png" alt="DUCKCRAFT panel with live console, server list and controls" width="880">
 
 </div>
 
@@ -46,17 +52,30 @@ Setting up a Minecraft server usually means downloading a jar from somewhere, wr
 **Install and run**
 
 ```bash
-git clone https://github.com/DuckByte1337/DUCKCRAFT.git
-cd DUCKCRAFT
+git clone https://github.com/DuckByte1337/duckcraft.git
+cd duckcraft
 
 python -m venv .venv
-source .venv/bin/activate        # Windows: .venv\Scripts\activate
+```
 
+Activate the virtual environment:
+
+| System | Command |
+|---|---|
+| Windows (PowerShell) | `.venv\Scripts\Activate.ps1` |
+| Windows (cmd) | `.venv\Scripts\activate.bat` |
+| macOS / Linux | `source .venv/bin/activate` |
+
+Then install and start:
+
+```bash
 pip install -r requirements.txt
 python main.py
 ```
 
 Your browser opens at <http://127.0.0.1:8000>.
+
+> **No git?** Click the green **Code** button on this page, choose **Download ZIP**, unpack it, and continue from `python -m venv .venv`.
 
 **Your first server**
 
@@ -72,15 +91,53 @@ Your browser opens at <http://127.0.0.1:8000>.
 
 playit.gg is a third-party service. DUCKCRAFT is not affiliated with it and does not bundle or install it, so read its terms first. Never post your home IP address publicly.
 
+## Troubleshooting
+
+<details>
+<summary><b>The sidebar says "Java not found"</b></summary>
+
+Install Java from [adoptium.net](https://adoptium.net/), make sure `java -version` works in a new terminal, then **restart** `python main.py`. The panel checks for Java once at startup.
+
+</details>
+
+<details>
+<summary><b>The server stops right after starting</b></summary>
+
+Read the last lines of the console. The most common cause is a Java version that is too old for the chosen Minecraft version (look for `UnsupportedClassVersionError`). Install a newer Java and try again.
+
+</details>
+
+<details>
+<summary><b>"Address already in use"</b></summary>
+
+Another program is using the port. For the Minecraft server, change **Port** in the Settings tab. For the panel itself, change `PORT` at the top of `main.py`.
+
+</details>
+
+<details>
+<summary><b>The Settings tab says there is no server.properties</b></summary>
+
+Minecraft creates that file on its first launch. Start the server once, stop it, and the settings will appear.
+
+</details>
+
+<details>
+<summary><b>Version list or download fails</b></summary>
+
+DUCKCRAFT needs internet access to PaperMC and Mojang when you create a server. Check your connection or firewall and try again.
+
+</details>
+
 ## How it works
 
 ```text
-DUCKCRAFT/
+duckcraft/
 ├── main.py            FastAPI backend: downloads, process control, WebSocket logs, settings API
 ├── index.html         Single-file frontend (plain HTML, CSS and JavaScript)
 ├── logo.svg           The duck
+├── preview.png        Screenshot used in this README
 ├── requirements.txt
-└── servers/           Created on first run, one folder per server (git-ignored)
+└── servers/           Created on first run, one folder per server
     └── <name>/
         ├── server.jar
         ├── server.properties
@@ -105,15 +162,17 @@ DUCKCRAFT is designed as a **local-only** tool:
 
 Ideas for future versions, contributions welcome:
 
+- [ ] Java version detection per Minecraft version
 - [ ] Delete and rename servers
 - [ ] World backups
 - [ ] Plugin and mod management
-- [ ] Java version detection per Minecraft version
 - [ ] Optional password for the panel
 
 ## Contributing
 
-Bug reports, ideas and pull requests are welcome. Keep it small and readable: the whole point is that anyone can understand the code. Please open an issue first for larger changes.
+Bug reports, ideas and pull requests are welcome. Keep it small and readable: the whole point is that anyone can understand the code. Please [open an issue](https://github.com/DuckByte1337/duckcraft/issues) first for larger changes.
+
+If DUCKCRAFT saved you some time, a ⭐ on the repo is always appreciated.
 
 ## Built with AI assistance
 
