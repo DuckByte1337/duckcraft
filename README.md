@@ -13,6 +13,7 @@ Pick an engine, pick a version, press start. No Docker, no database, no accounts
 [![Stars](https://img.shields.io/github/stars/DuckByte1337/duckcraft?style=flat-square&color=f5c542)](https://github.com/DuckByte1337/duckcraft/stargazers)
 [![Last commit](https://img.shields.io/github/last-commit/DuckByte1337/duckcraft?style=flat-square)](https://github.com/DuckByte1337/duckcraft/commits/main)
 [![Runs locally](https://img.shields.io/badge/runs-100%25%20locally-5fd38d?style=flat-square)](#security)
+[![Release](https://img.shields.io/github/v/release/DuckByte1337/duckcraft?style=flat-square&color=5fd38d)](https://github.com/DuckByte1337/duckcraft/releases)
 
 [Quick start](#quick-start) · [Features](#features) · [Playing with friends](#playing-with-friends) · [Troubleshooting](#troubleshooting) · [Security](#security) · [Contributing](#contributing)
 
